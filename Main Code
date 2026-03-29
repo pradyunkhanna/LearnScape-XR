@@ -1,267 +1,226 @@
-using UnityEngine;
-using UnityEngine.UI;
-using UnityEngine.XR;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LearnScape XR - Hub</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; overflow: hidden;
+background: #000; }
+        a-scene { width: 100%; height: 100vh; }
 
-/// <summary>
-/// LearnScape XR - Combined Script
-/// Contains:
-/// 1. GazeManager - Detects gaze and interactions
-/// 2. InteractableObject - Objects that can be looked at and interacted with
-/// 3. UIManager - Controls UI panels and hints
-/// 4. UIInputHandler - Handles closing info panel
-/// 5. Reticle - Optional VR gaze cursor
-/// 
-/// NOTE: In production, it's recommended to separate these classes into individual files.
-/// </summary>
-public class LearnScapeXR : MonoBehaviour
-{
-    // Empty MonoBehaviour to attach all classes to the scene if needed.
-}
+        .header { position: fixed; top: 0; left: 0; right: 0;
+text-align: center; color: white; padding: 20px; z-index: 10; }
+        .header h1 { font-size: 48px; margin: 0; }
 
+        .buttons-container {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 50;
+        }
 
-// ============================
-// 1. GazeManager
-// Detects which object the player is looking at and handles interaction
-// ============================
-public class GazeManager : MonoBehaviour
-{
-    [Header("Gaze Settings")]
-    public float maxDistance = 15f;
-    public LayerMask interactableLayer;
+        .btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+            min-width: 150px;
+        }
 
-    private GameObject currentObject;
+        .btn-heart {
+            background: #ff6b9d;
+        }
 
-    void Update()
-    {
-        HandleGaze();
-        HandleInput();
-    }
+        .btn-heart:hover {
+            background: #e91e63;
+            transform: scale(1.05);
+        }
 
-    void HandleGaze()
-    {
-        Ray ray = new Ray(transform.position, transform.forward);
-        RaycastHit hit;
+        .btn-atom {
+            background: #ffd700;
+            color: #333;
+        }
 
-        if (Physics.Raycast(ray, out hit, maxDistance, interactableLayer))
-        {
-            if (currentObject != hit.collider.gameObject)
-            {
-                ClearLook();
-                currentObject = hit.collider.gameObject;
-                currentObject.SendMessage("OnLookAt", SendMessageOptions.DontRequireReceiver);
+        .btn-atom:hover {
+            background: #ffb300;
+            transform: scale(1.05);
+        }
+
+        .btn-quiz {
+            background: #4a90e2;
+        }
+
+        .btn-quiz:hover {
+            background: #2979f0;
+            transform: scale(1.05);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 10px rgba(100, 100, 200, 0.3);
+        }
+
+        .info-text {
+            position: fixed;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 20px;
+            text-align: center;
+            z-index: 10;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+
+        .sound-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            background: rgba(100, 200, 255, 0.3);
+            color: white;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 50;
+            transition: all 0.3s ease;
+        }
+
+        .sound-toggle:hover {
+            background: rgba(100, 200, 255, 0.5);
+            transform: scale(1.05);
+        }
+
+        .btn {
+            box-shadow: 0 0 20px rgba(100, 100, 200, 0.5);
+            animation: floatIn 0.6s ease-out;
+        }
+
+        @keyframes floatIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
-        else
-        {
-            ClearLook();
-        }
-    }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎮 LearnScape XR</h1>
+    </div>
 
-    void HandleInput()
-    {
-        bool isTriggered = false;
+    <a-scene background="color: #0f3460">
+        <a-camera position="0 1.6 0" look-controls wasd-controls></a-camera>
+        <a-light type="ambient" intensity="0.7"></a-light>
+        <a-light type="directional" intensity="0.8" position="10 15
+10"></a-light>
 
-        // VR Trigger input
-        InputDevice device = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
-        if (device.isValid)
-        {
-            device.TryGetFeatureValue(CommonUsages.triggerButton, out isTriggered);
-        }
+        <a-plane position="0 0 0" rotation="-90 0 0" width="50"
+height="50" color="#2a2a4a"></a-plane>
 
-        // Keyboard fallback
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            isTriggered = true;
-        }
+        <!-- Heart Display -->
+        <a-entity position="-5 2 -8">
+            <a-sphere radius="1.2" color="#ff6b9d"></a-sphere>
+        </a-entity>
 
-        if (isTriggered && currentObject != null)
-        {
-            currentObject.SendMessage("OnInteract", SendMessageOptions.DontRequireReceiver);
-        }
-    }
+        <!-- Atom Display -->
+        <a-entity position="0 2 -8">
+            <a-sphere radius="1.2" color="#ffd700"></a-sphere>
+        </a-entity>
 
-    void ClearLook()
-    {
-        if (currentObject != null)
-        {
-            currentObject.SendMessage("OnLookAway", SendMessageOptions.DontRequireReceiver);
-            currentObject = null;
-        }
-    }
-}
+        <!-- Quiz Display -->
+        <a-entity position="5 2 -8">
+            <a-sphere radius="1.2" color="#4a90e2"></a-sphere>
+        </a-entity>
 
-// ============================
-// 2. InteractableObject
-// Defines interactable learning objects
-// ============================
-[RequireComponent(typeof(Collider))]
-public class InteractableObject : MonoBehaviour
-{
-    [Header("Object Info")]
-    public string objectName;
+        <a-entity position="0 5.5 -12">
+            <a-text value="Interactive Learning Hub" align="center"
+scale="2 2 2" color="#667eea"></a-text>
+        </a-entity>
+    </a-scene>
 
-    [TextArea]
-    public string description;
+    <button class="sound-toggle" id="soundToggle"
+onclick="toggleSound()">🔊 Sound ON</button>
 
-    [Header("Visual Feedback")]
-    public Renderer objectRenderer;
-    public Color highlightColor = Color.yellow;
+    <div class="info-text">👆 Click a button below to explore</div>
 
-    private Color originalColor;
-    private bool isLooking = false;
+    <div class="buttons-container">
+        <button class="btn btn-heart"
+onclick="navigateTo('heart.html');">❤️ Heart</button>
+        <button class="btn btn-atom"
+onclick="navigateTo('atom.html');">⚛️ Atom</button>
+        <button class="btn btn-quiz"
+onclick="navigateTo('quiz.html');">❓ Quiz</button>
+    </div>
 
-    [Header("Audio Feedback")]
-    public AudioSource audioSource;
-    public AudioClip interactionSound;
+    <script>
+        let soundEnabled = true;
+        let audioContext;
 
-    void Start()
-    {
-        if (objectRenderer != null)
-        {
-            originalColor = objectRenderer.material.color;
-        }
-    }
-
-    public void OnLookAt()
-    {
-        isLooking = true;
-
-        if (objectRenderer != null)
-        {
-            objectRenderer.material.color = highlightColor;
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext ||
+window.webkitAudioContext)();
+            }
         }
 
-        UIManager.Instance.ShowHint("Press Trigger / SPACE to learn");
-    }
+        function playClickSound() {
+            if (!soundEnabled || !audioContext) return;
+            initAudio();
 
-    public void OnLookAway()
-    {
-        isLooking = false;
+            const now = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
 
-        if (objectRenderer != null)
-        {
-            objectRenderer.material.color = originalColor;
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+
+            osc.frequency.setValueAtTime(400, now);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+            osc.start(now);
+            osc.stop(now + 0.1);
         }
 
-        UIManager.Instance.HideHint();
-    }
-
-    public void OnInteract()
-    {
-        if (!isLooking) return;
-
-        UIManager.Instance.ShowInfo(objectName, description);
-
-        if (audioSource != null && interactionSound != null)
-        {
-            audioSource.PlayOneShot(interactionSound);
-        }
-    }
-}
-
-// ============================
-// 3. UIManager
-// Manages info panel and hint messages
-// ============================
-public class UIManager : MonoBehaviour
-{
-    public static UIManager Instance;
-
-    [Header("Info Panel")]
-    public GameObject infoPanel;
-    public Text titleText;
-    public Text descriptionText;
-
-    [Header("Hint Text")]
-    public GameObject hintText;
-    public Text hintLabel;
-
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const btn = document.getElementById('soundToggle');
+            btn.textContent = soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF';
+            btn.style.background = soundEnabled ? 'rgba(100, 200, 255,
+0.3)' : 'rgba(255, 100, 100, 0.3)';
         }
 
-        Instance = this;
-    }
-
-    public void ShowInfo(string title, string desc)
-    {
-        infoPanel.SetActive(true);
-        titleText.text = title;
-        descriptionText.text = desc;
-    }
-
-    public void CloseInfo()
-    {
-        infoPanel.SetActive(false);
-    }
-
-    public void ShowHint(string msg)
-    {
-        hintText.SetActive(true);
-        hintLabel.text = msg;
-    }
-
-    public void HideHint()
-    {
-        hintText.SetActive(false);
-    }
-}
-
-// ============================
-// 4. UIInputHandler
-// Handles closing the info panel
-// ============================
-public class UIInputHandler : MonoBehaviour
-{
-    void Update()
-    {
-        bool closePressed = false;
-
-        // VR primary button (A/X)
-        InputDevice device = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
-        if (device.isValid)
-        {
-            device.TryGetFeatureValue(CommonUsages.primaryButton, out closePressed);
+        function navigateTo(page) {
+            playClickSound();
+            setTimeout(() => {
+                window.location.href = page;
+            }, 50);
         }
 
-        // Keyboard fallback
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            closePressed = true;
-        }
-
-        if (closePressed)
-        {
-            UIManager.Instance.CloseInfo();
-        }
-    }
-}
-
-// ============================
-// 5. Reticle
-// Optional VR gaze cursor
-// ============================
-public class Reticle : MonoBehaviour
-{
-    public float defaultDistance = 2f;
-    public float maxDistance = 15f;
-
-    void Update()
-    {
-        Ray ray = new Ray(transform.parent.position, transform.parent.forward);
-        RaycastHit hit;
-
-        if (Physics.Raycast(ray, out hit, maxDistance))
-        {
-            transform.position = hit.point;
-        }
-        else
-        {
-            transform.position = ray.origin + ray.direction * defaultDistance;
-        }
-    }
-}
+        // Initialize audio on first interaction
+        document.addEventListener('click', () => {
+            if (!audioContext) initAudio();
+        }, { once: true });
+    </script>
+</body>
+</html>
