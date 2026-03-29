@@ -1,0 +1,267 @@
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.XR;
+
+/// <summary>
+/// LearnScape XR - Combined Script
+/// Contains:
+/// 1. GazeManager - Detects gaze and interactions
+/// 2. InteractableObject - Objects that can be looked at and interacted with
+/// 3. UIManager - Controls UI panels and hints
+/// 4. UIInputHandler - Handles closing info panel
+/// 5. Reticle - Optional VR gaze cursor
+/// 
+/// NOTE: In production, it's recommended to separate these classes into individual files.
+/// </summary>
+public class LearnScapeXR : MonoBehaviour
+{
+    // Empty MonoBehaviour to attach all classes to the scene if needed.
+}
+
+
+// ============================
+// 1. GazeManager
+// Detects which object the player is looking at and handles interaction
+// ============================
+public class GazeManager : MonoBehaviour
+{
+    [Header("Gaze Settings")]
+    public float maxDistance = 15f;
+    public LayerMask interactableLayer;
+
+    private GameObject currentObject;
+
+    void Update()
+    {
+        HandleGaze();
+        HandleInput();
+    }
+
+    void HandleGaze()
+    {
+        Ray ray = new Ray(transform.position, transform.forward);
+        RaycastHit hit;
+
+        if (Physics.Raycast(ray, out hit, maxDistance, interactableLayer))
+        {
+            if (currentObject != hit.collider.gameObject)
+            {
+                ClearLook();
+                currentObject = hit.collider.gameObject;
+                currentObject.SendMessage("OnLookAt", SendMessageOptions.DontRequireReceiver);
+            }
+        }
+        else
+        {
+            ClearLook();
+        }
+    }
+
+    void HandleInput()
+    {
+        bool isTriggered = false;
+
+        // VR Trigger input
+        InputDevice device = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
+        if (device.isValid)
+        {
+            device.TryGetFeatureValue(CommonUsages.triggerButton, out isTriggered);
+        }
+
+        // Keyboard fallback
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            isTriggered = true;
+        }
+
+        if (isTriggered && currentObject != null)
+        {
+            currentObject.SendMessage("OnInteract", SendMessageOptions.DontRequireReceiver);
+        }
+    }
+
+    void ClearLook()
+    {
+        if (currentObject != null)
+        {
+            currentObject.SendMessage("OnLookAway", SendMessageOptions.DontRequireReceiver);
+            currentObject = null;
+        }
+    }
+}
+
+// ============================
+// 2. InteractableObject
+// Defines interactable learning objects
+// ============================
+[RequireComponent(typeof(Collider))]
+public class InteractableObject : MonoBehaviour
+{
+    [Header("Object Info")]
+    public string objectName;
+
+    [TextArea]
+    public string description;
+
+    [Header("Visual Feedback")]
+    public Renderer objectRenderer;
+    public Color highlightColor = Color.yellow;
+
+    private Color originalColor;
+    private bool isLooking = false;
+
+    [Header("Audio Feedback")]
+    public AudioSource audioSource;
+    public AudioClip interactionSound;
+
+    void Start()
+    {
+        if (objectRenderer != null)
+        {
+            originalColor = objectRenderer.material.color;
+        }
+    }
+
+    public void OnLookAt()
+    {
+        isLooking = true;
+
+        if (objectRenderer != null)
+        {
+            objectRenderer.material.color = highlightColor;
+        }
+
+        UIManager.Instance.ShowHint("Press Trigger / SPACE to learn");
+    }
+
+    public void OnLookAway()
+    {
+        isLooking = false;
+
+        if (objectRenderer != null)
+        {
+            objectRenderer.material.color = originalColor;
+        }
+
+        UIManager.Instance.HideHint();
+    }
+
+    public void OnInteract()
+    {
+        if (!isLooking) return;
+
+        UIManager.Instance.ShowInfo(objectName, description);
+
+        if (audioSource != null && interactionSound != null)
+        {
+            audioSource.PlayOneShot(interactionSound);
+        }
+    }
+}
+
+// ============================
+// 3. UIManager
+// Manages info panel and hint messages
+// ============================
+public class UIManager : MonoBehaviour
+{
+    public static UIManager Instance;
+
+    [Header("Info Panel")]
+    public GameObject infoPanel;
+    public Text titleText;
+    public Text descriptionText;
+
+    [Header("Hint Text")]
+    public GameObject hintText;
+    public Text hintLabel;
+
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+    }
+
+    public void ShowInfo(string title, string desc)
+    {
+        infoPanel.SetActive(true);
+        titleText.text = title;
+        descriptionText.text = desc;
+    }
+
+    public void CloseInfo()
+    {
+        infoPanel.SetActive(false);
+    }
+
+    public void ShowHint(string msg)
+    {
+        hintText.SetActive(true);
+        hintLabel.text = msg;
+    }
+
+    public void HideHint()
+    {
+        hintText.SetActive(false);
+    }
+}
+
+// ============================
+// 4. UIInputHandler
+// Handles closing the info panel
+// ============================
+public class UIInputHandler : MonoBehaviour
+{
+    void Update()
+    {
+        bool closePressed = false;
+
+        // VR primary button (A/X)
+        InputDevice device = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
+        if (device.isValid)
+        {
+            device.TryGetFeatureValue(CommonUsages.primaryButton, out closePressed);
+        }
+
+        // Keyboard fallback
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            closePressed = true;
+        }
+
+        if (closePressed)
+        {
+            UIManager.Instance.CloseInfo();
+        }
+    }
+}
+
+// ============================
+// 5. Reticle
+// Optional VR gaze cursor
+// ============================
+public class Reticle : MonoBehaviour
+{
+    public float defaultDistance = 2f;
+    public float maxDistance = 15f;
+
+    void Update()
+    {
+        Ray ray = new Ray(transform.parent.position, transform.parent.forward);
+        RaycastHit hit;
+
+        if (Physics.Raycast(ray, out hit, maxDistance))
+        {
+            transform.position = hit.point;
+        }
+        else
+        {
+            transform.position = ray.origin + ray.direction * defaultDistance;
+        }
+    }
+}
